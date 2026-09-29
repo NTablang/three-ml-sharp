@@ -1,7 +1,17 @@
 import * as THREE from "three";
+import GUI from "lil-gui";
 import WebGLContext from "../core/WebGLContext";
 import PlyLoader from "../utils/PlyLoader";
 import { CameraRig } from "../utils/CameraRig";
+import { imageToPointCloud } from "../utils/ImageDepthProcessor";
+import AudioReactive from "../utils/AudioReactive";
+
+const PRESETS = {
+	dream: { influence: 0.48, strength: 0.7, frequency: 0.34, returnStrength: 2.4, lifeSpeed: 0.18, size: 0.04, scatter: 3.6 },
+	storm: { influence: 0.76, strength: 3.8, frequency: 1.15, returnStrength: 0.75, lifeSpeed: 0.8, size: 0.027, scatter: 5.2 },
+	drift: { influence: 0.58, strength: 1.45, frequency: 0.17, returnStrength: 0.42, lifeSpeed: 0.26, size: 0.045, scatter: 4.5 },
+	still: { influence: 0.2, strength: 0.06, frequency: 0.2, returnStrength: 5.5, lifeSpeed: 0.08, size: 0.035, scatter: 2.7 },
+};
 
 export default class Scene {
 	constructor() {
@@ -12,7 +22,15 @@ export default class Scene {
 		this.height = 0;
 		this.aspectRatio = 0;
 		this.scene = null;
-		this.envMap = null;
+		this.plyLoader = null;
+		this.paused = false;
+		this.currentPreset = "dream";
+		this.revealAnimation = null;
+		this.handTracker = null;
+		this.handEnabled = false;
+		this.dragDepth = 0;
+		this.toastTimer = 0;
+		this.ui = {};
 		this.#init();
 	}
 
@@ -21,7 +39,8 @@ export default class Scene {
 		this.#setupScene();
 		this.#setupCamera();
 		this.#setupCameraRig();
-		await this.#addObjects();
+		this.#bindInterface();
+		await this.#loadDefaultMemory();
 	}
 
 	#setContext() {
@@ -30,8 +49,8 @@ export default class Scene {
 
 	#setupScene() {
 		this.scene = new THREE.Scene();
-		this.scene.background = new THREE.Color(0x000000);
-		this.scene.fog = new THREE.Fog(0x000000, 40.0, 45.0);
+		this.scene.background = new THREE.Color(0x050508);
+		this.scene.fog = new THREE.Fog(0x050508, 8, 18);
 	}
 
 	#setupCamera() {
@@ -43,35 +62,307 @@ export default class Scene {
 	#setupCameraRig() {
 		this.cameraRig = new CameraRig(this.camera, {
 			target: new THREE.Vector3(0, 0, 0),
-			xLimit: [-10.25, 10.25],
-			yLimit: [-1.25, 0.25],
-			target: new THREE.Vector3(0, 0, -5),
-			damping: 2.0,
+			xLimit: [-1.4, 1.4],
+			yLimit: [-0.8, 0.8],
+			damping: 2.4,
 		});
 	}
 
-	async #addObjects() {
-		this.plyLoader = new PlyLoader(`${import.meta.env.BASE_URL}tokyo.min.ply`, {
-			renderer: this.context.renderer,
-			size: 0.05,
-			flowFieldInfluence: 0.5,
-			flowFieldStrength: 1.2,
-			flowFieldFrequency: 0.5,
-			onProgress: (progress) => {
-				const pct = Math.round(progress * 100);
-				const bar = document.getElementById("loader-bar");
-				if (bar) bar.style.width = `${pct}%`;
-			},
-			onLoad: (points) => {
-				points.rotation.x = Math.PI;
-				this.scene.add(points);
-				const loader = document.getElementById("loader");
-				if (loader) {
-					loader.style.opacity = "0";
-					setTimeout(() => loader.remove(), 700);
-				}
-			},
+	#bindInterface() {
+		const byId = (id) => document.getElementById(id);
+		this.ui = {
+			photoInput: byId("photo-input"),
+			audioInput: byId("audio-input"),
+			uploadHero: byId("upload-hero"),
+			uploadButton: byId("upload-btn"),
+			audioButton: byId("audio-btn"),
+			handButton: byId("hand-btn"),
+			reconstructButton: byId("reconstruct-btn"),
+			settingsButton: byId("settings-btn"),
+			audioPlayer: byId("audio-player"),
+			audioMeter: byId("audio-meter"),
+			handPreview: byId("hand-preview"),
+			handVideo: byId("hand-video"),
+			handCursor: byId("hand-cursor"),
+			dropZone: byId("drop-zone"),
+			loader: byId("loader"),
+			loaderTitle: byId("loader-title"),
+			loaderDetail: byId("loader-detail"),
+			loaderBar: byId("loader-bar"),
+			toast: byId("toast"),
+			meta: byId("memory-meta"),
+		};
+
+		const openPhotoPicker = () => this.ui.photoInput.click();
+		this.ui.uploadHero.addEventListener("click", openPhotoPicker);
+		this.ui.uploadButton.addEventListener("click", openPhotoPicker);
+		this.ui.photoInput.addEventListener("change", () => {
+			const [file] = this.ui.photoInput.files;
+			if (file) this.#handleImage(file);
+			this.ui.photoInput.value = "";
 		});
+
+		this.ui.audioButton.addEventListener("click", () => this.ui.audioInput.click());
+		this.ui.audioInput.addEventListener("change", () => {
+			const [file] = this.ui.audioInput.files;
+			if (file) this.#handleAudio(file);
+			this.ui.audioInput.value = "";
+		});
+
+		this.ui.handButton.addEventListener("click", () => this.#toggleHandControl());
+		this.ui.reconstructButton.addEventListener("click", () => this.reconstruct());
+		this.ui.settingsButton.addEventListener("click", () => {
+			this.gui?.domElement.classList.toggle("is-visible");
+			this.ui.settingsButton.classList.toggle("active");
+		});
+
+		document.querySelectorAll("[data-preset]").forEach((button) => {
+			button.addEventListener("click", () => this.#applyPreset(button.dataset.preset));
+		});
+
+		window.addEventListener("dragenter", (event) => {
+			event.preventDefault();
+			this.dragDepth += 1;
+			this.ui.dropZone.classList.add("active");
+		});
+		window.addEventListener("dragover", (event) => event.preventDefault());
+		window.addEventListener("dragleave", (event) => {
+			event.preventDefault();
+			this.dragDepth = Math.max(0, this.dragDepth - 1);
+			if (!this.dragDepth) this.ui.dropZone.classList.remove("active");
+		});
+		window.addEventListener("drop", (event) => {
+			event.preventDefault();
+			this.dragDepth = 0;
+			this.ui.dropZone.classList.remove("active");
+			const file = [...event.dataTransfer.files].find((item) => item.type.startsWith("image/"));
+			if (file) this.#handleImage(file);
+			else this.#showToast("Drop a JPG, PNG, or WebP image.", true);
+		});
+
+		this.audioReactive = new AudioReactive(this.ui.audioPlayer);
+	}
+
+	async #loadDefaultMemory() {
+		this.#setLoader(true, "Opening memory", "Preparing the particle field…", 0.08);
+		try {
+			await this.#replacePointField({
+				url: `${import.meta.env.BASE_URL}photo.min.ply`,
+				rotationX: Math.PI,
+			});
+			this.#setLoader(false);
+		} catch (error) {
+			console.error(error);
+			this.#setLoader(false);
+			this.#showToast("The sample memory could not be opened. Choose your own photograph.", true);
+		}
+	}
+
+	async #handleImage(file) {
+		this.#setLoader(true, "Reading depth", "Loading the local vision model…", 0.04);
+		let furthestProgress = 0.04;
+
+		try {
+			const data = await imageToPointCloud(file, {
+				maxSide: 512,
+				depthScale: 1.8,
+				onProgress: ({ stage, progress, device }) => {
+					const messages = {
+						model: `Loading Depth Anything on ${device.toUpperCase()}…`,
+						fallback: "Switching to compatibility mode…",
+						inference: "Estimating the space inside your photograph…",
+						geometry: "Building the particle memory…",
+						done: "Opening the portal…",
+					};
+					const stageFloor = { model: 0.05, fallback: 0.1, inference: 0.65, geometry: 0.84, done: 0.96 }[stage] ?? 0.05;
+					furthestProgress = Math.max(furthestProgress, stageFloor + progress * (stage === "model" ? 0.45 : 0.1));
+					this.#setLoader(true, "Reading depth", messages[stage], Math.min(furthestProgress, 0.98));
+				},
+			});
+
+			await this.#replacePointField({ data, rotationX: 0 });
+			document.body.classList.add("memory-loaded");
+			this.ui.meta.textContent = `${file.name} · ${data.vertexCount.toLocaleString()} particles · processed locally`;
+			this.#setLoader(false);
+			this.#showToast("Your memory is alive. Add sound or pinch it with your hand.");
+		} catch (error) {
+			console.error(error);
+			this.#setLoader(false);
+			this.#showToast(error.message || "This photograph could not be processed.", true);
+		}
+	}
+
+	async #handleAudio(file) {
+		try {
+			await this.audioReactive.load(file);
+			this.ui.audioButton.classList.add("active");
+			this.ui.audioMeter.hidden = false;
+			this.#showToast(`Listening to ${file.name}`);
+		} catch (error) {
+			console.error(error);
+			this.#showToast(error.message || "The soundtrack could not be opened.", true);
+		}
+	}
+
+	async #toggleHandControl() {
+		if (this.handEnabled) {
+			this.handTracker?.stop();
+			this.handEnabled = false;
+			this.ui.handButton.classList.remove("active");
+			this.ui.handPreview.hidden = true;
+			this.ui.handCursor.hidden = true;
+			return;
+		}
+
+		if (!navigator.mediaDevices?.getUserMedia) {
+			this.#showToast("Camera hand control is not supported in this browser.", true);
+			return;
+		}
+
+		this.ui.handButton.classList.add("active");
+		this.#showToast("Starting private, on-device hand tracking…");
+		try {
+			if (!this.handTracker) {
+				const { default: HandTracker } = await import("../utils/HandTracker");
+				this.handTracker = new HandTracker(this.ui.handVideo, (state) => this.#onHandUpdate(state));
+			}
+			await this.handTracker.start();
+			this.handEnabled = true;
+			this.ui.handPreview.hidden = false;
+			this.#showToast("Pinch your thumb and index finger to pull the particles.");
+		} catch (error) {
+			console.error(error);
+			this.ui.handButton.classList.remove("active");
+			this.ui.handPreview.hidden = true;
+			this.#showToast("Hand control needs camera access and an internet connection on first use.", true);
+		}
+	}
+
+	#onHandUpdate(state) {
+		if (!state.active) {
+			this.ui.handCursor.hidden = true;
+			this.plyLoader?.setAttractor(0, 0, 0, 0);
+			return;
+		}
+
+		const x = (state.x - 0.5) * 3;
+		const y = (0.5 - state.y) * 2.2;
+		this.plyLoader?.setAttractor(x, y, 0, state.strength * 7.5);
+		this.ui.handCursor.hidden = false;
+		this.ui.handCursor.style.transform = `translate(${state.x * window.innerWidth}px, ${state.y * window.innerHeight}px)`;
+		this.ui.handCursor.classList.toggle("pinching", state.pinching);
+	}
+
+	#replacePointField({ url = null, data = null, rotationX = 0 }) {
+		return new Promise((resolve, reject) => {
+			if (this.plyLoader?.points) this.scene.remove(this.plyLoader.points);
+			this.plyLoader?.dispose();
+			this.gui?.destroy();
+			this.gui = null;
+
+			this.plyLoader = new PlyLoader(url, {
+				data,
+				renderer: this.context.renderer,
+				size: PRESETS[this.currentPreset].size,
+				flowFieldInfluence: PRESETS[this.currentPreset].influence,
+				flowFieldStrength: PRESETS[this.currentPreset].strength,
+				flowFieldFrequency: PRESETS[this.currentPreset].frequency,
+				returnStrength: PRESETS[this.currentPreset].returnStrength,
+				lifeSpeed: PRESETS[this.currentPreset].lifeSpeed,
+				scatter: PRESETS[this.currentPreset].scatter,
+				onProgress: (progress) => {
+					this.#setLoader(true, "Opening memory", "Loading the particle field…", progress * 0.9);
+				},
+				onLoad: (points) => {
+					points.rotation.x = rotationX;
+					this.scene.add(points);
+					this.#setupGui();
+					this.#applyPreset(this.currentPreset);
+					this.reconstruct();
+					resolve(points);
+				},
+				onError: reject,
+			});
+		});
+	}
+
+	#applyPreset(name) {
+		const preset = PRESETS[name];
+		if (!preset || !this.plyLoader?.particlesVariable) return;
+		this.currentPreset = name;
+		const particleUniforms = this.plyLoader.particlesVariable.material.uniforms;
+		particleUniforms.uFlowFieldInfluence.value = preset.influence;
+		particleUniforms.uFlowFieldStrength.value = preset.strength;
+		particleUniforms.uFlowFieldFrequency.value = preset.frequency;
+		particleUniforms.uReturnStrength.value = preset.returnStrength;
+		particleUniforms.uLifeSpeed.value = preset.lifeSpeed;
+		this.plyLoader.material.uniforms.uSize.value = preset.size;
+		this.plyLoader.material.uniforms.uScatter.value = preset.scatter;
+		document.querySelectorAll("[data-preset]").forEach((button) => button.classList.toggle("active", button.dataset.preset === name));
+		this.gui?.controllersRecursive().forEach((controller) => controller.updateDisplay());
+	}
+
+	reconstruct() {
+		if (!this.plyLoader?.material) return;
+		this.revealAnimation = { start: performance.now(), duration: 2300 };
+		this.plyLoader.material.uniforms.uReveal.value = 0;
+	}
+
+	#setupGui() {
+		const gui = new GUI({ title: "Fine tune" });
+		gui.domElement.classList.add("tuning-panel");
+		const particleUniforms = this.plyLoader.particlesVariable.material.uniforms;
+		const materialUniforms = this.plyLoader.material.uniforms;
+		const points = this.plyLoader.points;
+
+		const particles = gui.addFolder("Particles");
+		particles.add(materialUniforms.uSize, "value", 0.004, 0.12, 0.001).name("size");
+		particles.add(this, "paused").name("pause");
+		particles.add(materialUniforms.uScatter, "value", 0, 10, 0.1).name("reveal spread");
+
+		const motion = gui.addFolder("Motion");
+		motion.add(particleUniforms.uFlowFieldInfluence, "value", 0, 1, 0.01).name("coverage");
+		motion.add(particleUniforms.uFlowFieldStrength, "value", 0, 8, 0.01).name("turbulence");
+		motion.add(particleUniforms.uFlowFieldFrequency, "value", 0, 2, 0.01).name("frequency");
+		motion.add(particleUniforms.uReturnStrength, "value", 0, 8, 0.05).name("memory pull");
+		motion.add(particleUniforms.uLifeSpeed, "value", 0.02, 1.5, 0.01).name("renewal");
+		motion.add(particleUniforms.uAttractorRadius, "value", 0.2, 4, 0.05).name("hand radius");
+
+		const rotation = gui.addFolder("Rotation");
+		const angles = { x: THREE.MathUtils.radToDeg(points.rotation.x), y: 0, z: 0 };
+		rotation.add(angles, "x", -180, 180, 1).onChange((value) => (points.rotation.x = THREE.MathUtils.degToRad(value)));
+		rotation.add(angles, "y", -180, 180, 1).onChange((value) => (points.rotation.y = THREE.MathUtils.degToRad(value)));
+		rotation.add(angles, "z", -180, 180, 1).onChange((value) => (points.rotation.z = THREE.MathUtils.degToRad(value)));
+
+		const camera = gui.addFolder("Camera");
+		camera.add(this.camera, "fov", 20, 100, 1).onChange(() => this.camera.updateProjectionMatrix());
+		camera.add(this.cameraRig, "damping", 0.2, 8, 0.1).name("parallax damping");
+
+		const look = gui.addFolder("Look");
+		look.add(this.scene.fog, "near", 1, 30, 0.1).name("fog near");
+		look.add(this.scene.fog, "far", 2, 50, 0.1).name("fog far");
+		const colors = { background: `#${this.scene.background.getHexString()}` };
+		look.addColor(colors, "background").onChange((color) => {
+			this.scene.background.set(color);
+			this.scene.fog.color.set(color);
+		});
+
+		this.gui = gui;
+	}
+
+	#setLoader(visible, title = "Opening memory", detail = "", progress = 0) {
+		this.ui.loader.classList.toggle("hidden", !visible);
+		if (title) this.ui.loaderTitle.textContent = title;
+		if (detail) this.ui.loaderDetail.textContent = detail;
+		this.ui.loaderBar.style.width = `${Math.max(3, Math.min(100, progress * 100))}%`;
+	}
+
+	#showToast(message, isError = false) {
+		clearTimeout(this.toastTimer);
+		this.ui.toast.textContent = message;
+		this.ui.toast.classList.toggle("error", isError);
+		this.ui.toast.classList.add("visible");
+		this.toastTimer = setTimeout(() => this.ui.toast.classList.remove("visible"), 4200);
 	}
 
 	#calculateAspectRatio() {
@@ -82,18 +373,33 @@ export default class Scene {
 	}
 
 	animate(delta, elapsed) {
-		this.cameraRig && this.cameraRig.update(delta);
-		this.plyLoader && this.plyLoader.update(delta, elapsed);
+		this.cameraRig?.update(delta);
+		const bands = this.audioReactive?.getBands() ?? { bass: 0, mid: 0, high: 0 };
+		this.plyLoader?.setAudioBands(bands.bass, bands.mid, bands.high);
+
+		if (this.ui.audioMeter && !this.ui.audioMeter.hidden) {
+			const values = [bands.bass, bands.mid, bands.high, bands.mid, bands.bass];
+			this.ui.audioMeter.querySelectorAll("i").forEach((bar, index) => {
+				bar.style.height = `${18 + values[index] * 82}%`;
+			});
+		}
+
+		if (this.revealAnimation && this.plyLoader?.material) {
+			const raw = Math.min(1, (performance.now() - this.revealAnimation.start) / this.revealAnimation.duration);
+			const eased = 1 - Math.pow(1 - raw, 3);
+			this.plyLoader.material.uniforms.uReveal.value = eased;
+			if (raw >= 1) this.revealAnimation = null;
+		}
+
+		if (!this.paused) this.plyLoader?.update(delta, elapsed);
 	}
 
 	onResize(width, height) {
 		this.width = width;
 		this.height = height;
 		this.aspectRatio = width / height;
-
 		this.camera.aspect = this.aspectRatio;
 		this.camera.updateProjectionMatrix();
-
-		this.plyLoader && this.plyLoader.onResize(width, height);
+		this.plyLoader?.onResize(width, height);
 	}
 }

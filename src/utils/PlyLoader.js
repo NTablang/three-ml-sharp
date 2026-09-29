@@ -7,6 +7,7 @@ import fragmentShader from "../shaders/particles.frag";
 export default class PlyLoader {
 	constructor(url, options = {}) {
 		this.url = url;
+		this.data = options.data ?? null;
 
 		this.points = null;
 		this.material = null;
@@ -21,27 +22,43 @@ export default class PlyLoader {
 		this.flowFieldInfluence = options.flowFieldInfluence ?? 0.5;
 		this.flowFieldStrength = options.flowFieldStrength ?? 2.0;
 		this.flowFieldFrequency = options.flowFieldFrequency ?? 0.5;
+		this.returnStrength = options.returnStrength ?? 1.8;
+		this.lifeSpeed = options.lifeSpeed ?? 0.32;
+		this.scatter = options.scatter ?? 3.5;
 		this.renderer = options.renderer ?? null;
 
 		this.#load();
 	}
 
 	#load() {
+		if (this.data) {
+			queueMicrotask(() => {
+				try {
+					this.#build(this.data);
+				} catch (error) {
+					console.error("Point cloud build error:", error);
+					this.onError?.(error);
+				}
+			});
+			return;
+		}
+
 		fetch(this.url)
 			.then((response) => {
 				if (!response.ok) throw new Error(`HTTP ${response.status}`);
 				return this.#readWithProgress(response);
 			})
-			.then((buffer) => {
-				const { positions, colors, vertexCount } = this.#parse(buffer);
-				this.#setupGPGPU(positions, vertexCount);
-				this.#setupParticles(positions, colors, vertexCount);
-				this.onLoad?.(this.points);
-			})
+			.then((buffer) => this.#build(this.#parse(buffer)))
 			.catch((error) => {
 				console.error("PLY load error:", error);
 				this.onError?.(error);
 			});
+	}
+
+	#build({ positions, colors, vertexCount = positions.length / 3 }) {
+		this.#setupGPGPU(positions, vertexCount);
+		this.#setupParticles(positions, colors, vertexCount);
+		this.onLoad?.(this.points);
 	}
 
 	#parse(buffer) {
@@ -146,6 +163,24 @@ export default class PlyLoader {
 		this.particlesVariable.material.uniforms.uFlowFieldFrequency = {
 			value: this.flowFieldFrequency,
 		};
+		this.particlesVariable.material.uniforms.uReturnStrength = {
+			value: this.returnStrength,
+		};
+		this.particlesVariable.material.uniforms.uLifeSpeed = {
+			value: this.lifeSpeed,
+		};
+		this.particlesVariable.material.uniforms.uAudioBands = {
+			value: new THREE.Vector3(),
+		};
+		this.particlesVariable.material.uniforms.uAttractor = {
+			value: new THREE.Vector3(),
+		};
+		this.particlesVariable.material.uniforms.uAttractorStrength = {
+			value: 0,
+		};
+		this.particlesVariable.material.uniforms.uAttractorRadius = {
+			value: 1.4,
+		};
 
 		this.gpgpu.init();
 	}
@@ -156,6 +191,7 @@ export default class PlyLoader {
 		// UV coordinates to sample the GPGPU texture
 		const particlesUv = new Float32Array(vertexCount * 2);
 		const sizesArray = new Float32Array(vertexCount);
+		const randomArray = new Float32Array(vertexCount);
 
 		for (let i = 0; i < vertexCount; i++) {
 			const y = Math.floor(i / size);
@@ -164,7 +200,8 @@ export default class PlyLoader {
 			particlesUv[i * 2 + 0] = (x + 0.5) / size;
 			particlesUv[i * 2 + 1] = (y + 0.5) / size;
 
-			sizesArray[i] = Math.random();
+			sizesArray[i] = 0.35 + Math.random() * 0.65;
+			randomArray[i] = Math.random();
 		}
 
 		const geometry = new THREE.BufferGeometry();
@@ -175,6 +212,11 @@ export default class PlyLoader {
 		);
 		geometry.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
 		geometry.setAttribute("aSize", new THREE.BufferAttribute(sizesArray, 1));
+		geometry.setAttribute("aRandom", new THREE.BufferAttribute(randomArray, 1));
+		geometry.setAttribute(
+			"aBasePosition",
+			new THREE.BufferAttribute(positions, 3),
+		);
 
 		this.material = new THREE.ShaderMaterial({
 			vertexShader,
@@ -192,15 +234,35 @@ export default class PlyLoader {
 					value: this.gpgpu.getCurrentRenderTarget(this.particlesVariable)
 						.texture,
 				},
+				uReveal: { value: 1 },
+				uScatter: { value: this.scatter },
+				uAudioBands: { value: new THREE.Vector3() },
 			},
 			transparent: true,
-			depthWrite: true,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
 			side: THREE.DoubleSide,
 			fog: true,
 		});
 
 		this.points = new THREE.Points(geometry, this.material);
 		this.points.frustumCulled = false;
+	}
+
+	setAudioBands(bass, mid, high) {
+		this.particlesVariable?.material.uniforms.uAudioBands.value.set(
+			bass,
+			mid,
+			high,
+		);
+		this.material?.uniforms.uAudioBands.value.set(bass, mid, high);
+	}
+
+	setAttractor(x, y, z, strength = 0) {
+		if (!this.particlesVariable) return;
+		const uniforms = this.particlesVariable.material.uniforms;
+		uniforms.uAttractor.value.set(x, y, z);
+		uniforms.uAttractorStrength.value = strength;
 	}
 
 	update(delta, elapsed) {

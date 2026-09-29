@@ -4,6 +4,7 @@ uniform float fogFar;
 
 varying vec3 vColor;
 varying float vFogDepth;
+varying float vAlpha;
 
 void main() {
   // Map gl_PointCoord to [-1, 1]
@@ -34,5 +35,9 @@ void main() {
   float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
   color = mix(color, fogColor, fogFactor);
 
-  gl_FragColor = vec4(color, 1.0);
+	if (vAlpha < 0.01)
+		discard;
+
+	float softEdge = 1.0 - smoothstep(0.72, 1.0, r2);
+	gl_FragColor = vec4(color, vAlpha * softEdge);
 }

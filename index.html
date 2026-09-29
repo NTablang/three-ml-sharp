@@ -2,25 +2,75 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<link rel="icon" type="image/svg+xml" href="/vite.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Sketch</title>
+		<meta name="theme-color" content="#050508" />
+		<meta name="description" content="Turn a photograph into a living, audio-reactive particle memory." />
+		<title>Memory Field</title>
 	</head>
 	<body>
-		<div id="app" class="h-lvh w-full"></div>
-		<div
-			id="loader"
-			class="fixed inset-0 z-50 flex items-center justify-center bg-black transition-opacity duration-700"
-		>
-			<div class="flex flex-col items-center gap-3">
-				<div class="h-1 w-48 overflow-hidden rounded-full bg-white/10">
-					<div
-						id="loader-bar"
-						class="h-full w-0 rounded-full bg-white transition-[width] duration-150"
-					></div>
+		<main id="app" aria-label="Interactive particle memory"></main>
+
+		<header class="topbar">
+			<a class="brand" href="#" aria-label="Memory Field home">
+				<span class="brand-mark" aria-hidden="true"></span><span>Memory Field</span>
+			</a>
+			<div id="privacy-pill" class="privacy-pill"><span></span>Images stay on this device</div>
+		</header>
+
+		<section class="intro" aria-labelledby="intro-title">
+			<p class="eyebrow">A living photograph</p>
+			<h1 id="intro-title">Step inside<br />a memory.</h1>
+			<p class="lede">Choose a photograph. Local AI gives it depth; light, sound, and your hands bring it to life.</p>
+			<button id="upload-hero" class="hero-button" type="button"><span>Choose a photograph</span><span aria-hidden="true">↗</span></button>
+		</section>
+
+		<section class="control-shell" aria-label="Memory controls">
+			<div class="control-group primary-actions">
+				<button id="upload-btn" class="control-button" type="button" data-tooltip="New photograph"><span class="button-icon" aria-hidden="true">＋</span><span>Photo</span></button>
+				<button id="audio-btn" class="control-button" type="button" data-tooltip="Add a soundtrack"><span class="button-icon audio-icon" aria-hidden="true">♪</span><span>Sound</span></button>
+				<button id="hand-btn" class="control-button" type="button" data-tooltip="Control with your hand"><span class="button-icon" aria-hidden="true">◌</span><span>Hand</span></button>
+			</div>
+			<div class="divider" aria-hidden="true"></div>
+			<div class="preset-group" aria-label="Atmosphere presets">
+				<span class="preset-label">Atmosphere</span>
+				<div class="preset-buttons">
+					<button class="preset active" data-preset="dream" type="button">Dream</button>
+					<button class="preset" data-preset="storm" type="button">Storm</button>
+					<button class="preset" data-preset="drift" type="button">Drift</button>
+					<button class="preset" data-preset="still" type="button">Still</button>
 				</div>
 			</div>
+			<div class="divider" aria-hidden="true"></div>
+			<div class="secondary-actions">
+				<button id="reconstruct-btn" class="round-button" type="button" aria-label="Reconstruct memory" data-tooltip="Reconstruct">↻</button>
+				<button id="settings-btn" class="round-button" type="button" aria-label="Open fine tuning" data-tooltip="Fine tune">⌁</button>
+			</div>
+		</section>
+
+		<div class="audio-dock">
+			<div id="audio-meter" class="audio-meter" hidden aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+			<audio id="audio-player" controls hidden></audio>
 		</div>
+
+		<div id="hand-preview" class="hand-preview" hidden>
+			<video id="hand-video" muted playsinline hidden></video>
+			<div class="hand-preview-label"><span></span> Pinch to pull</div>
+		</div>
+		<div id="hand-cursor" class="hand-cursor" hidden></div>
+
+		<div id="drop-zone" class="drop-zone" aria-hidden="true"><div><span>Drop to enter</span><small>JPG · PNG · WEBP</small></div></div>
+
+		<div id="loader" class="loader" role="status" aria-live="polite">
+			<div class="loader-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+			<p id="loader-title">Opening memory</p>
+			<span id="loader-detail">Preparing the particle field…</span>
+			<div class="loader-track"><div id="loader-bar"></div></div>
+		</div>
+
+		<div id="toast" class="toast" role="status" aria-live="polite"></div>
+		<div id="memory-meta" class="memory-meta">Move your cursor to look around</div>
+		<input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+		<input id="audio-input" type="file" accept="audio/*" hidden />
 		<script type="module" src="/src/main.js"></script>
 	</body>
 </html>

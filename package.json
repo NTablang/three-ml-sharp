@@ -14,7 +14,10 @@
 		"vite-plugin-glsl": "^1.5.5"
 	},
 	"dependencies": {
+		"@huggingface/transformers": "^4.3.0",
+		"@mediapipe/tasks-vision": "^1.0.1",
 		"@tailwindcss/vite": "^4.1.18",
+		"lil-gui": "^0.21.0",
 		"three": "^0.182.0"
 	}
 }
