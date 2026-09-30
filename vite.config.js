@@ -4,5 +4,7 @@ import glsl from "vite-plugin-glsl";
 
 export default defineConfig({
 	plugins: [tailwindcss(), glsl()],
-	base: "/three-ml-sharp/",
+	// Relative asset URLs work from both Vercel's domain root and the
+	// /three-ml-sharp/ subdirectory used by GitHub Pages.
+	base: "./",
 });
