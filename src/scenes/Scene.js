@@ -7,10 +7,15 @@ import { imageToPointCloud } from "../utils/ImageDepthProcessor";
 import AudioReactive from "../utils/AudioReactive";
 
 const PRESETS = {
-	dream: { influence: 0.48, strength: 0.7, frequency: 0.34, returnStrength: 2.4, lifeSpeed: 0.18, size: 0.04, scatter: 3.6 },
+	dream: { influence: 0.48, strength: 0.7, frequency: 0.34, returnStrength: 2.4, lifeSpeed: 0.18, size: 0.01, scatter: 3.6 },
 	storm: { influence: 0.76, strength: 3.8, frequency: 1.15, returnStrength: 0.75, lifeSpeed: 0.8, size: 0.027, scatter: 5.2 },
-	drift: { influence: 0.58, strength: 1.45, frequency: 0.17, returnStrength: 0.42, lifeSpeed: 0.26, size: 0.045, scatter: 4.5 },
 	still: { influence: 0.2, strength: 0.06, frequency: 0.2, returnStrength: 5.5, lifeSpeed: 0.08, size: 0.035, scatter: 2.7 },
+};
+
+const DEFAULT_ROTATION = {
+	x: THREE.MathUtils.degToRad(56),
+	y: THREE.MathUtils.degToRad(-147),
+	z: THREE.MathUtils.degToRad(25),
 };
 
 export default class Scene {
@@ -79,6 +84,9 @@ export default class Scene {
 			handButton: byId("hand-btn"),
 			reconstructButton: byId("reconstruct-btn"),
 			settingsButton: byId("settings-btn"),
+			controlsToggle: byId("controls-toggle"),
+			controlShell: document.querySelector(".control-shell"),
+			controlPanel: byId("memory-controls"),
 			audioPlayer: byId("audio-player"),
 			audioMeter: byId("audio-meter"),
 			handPreview: byId("hand-preview"),
@@ -90,8 +98,28 @@ export default class Scene {
 			loaderDetail: byId("loader-detail"),
 			loaderBar: byId("loader-bar"),
 			toast: byId("toast"),
-			meta: byId("memory-meta"),
 		};
+
+		const setControlsAvailable = (available) => {
+			this.ui.controlPanel.inert = !available;
+			this.ui.controlPanel.setAttribute("aria-hidden", String(!available));
+			this.ui.controlsToggle.setAttribute("aria-expanded", String(available));
+			this.ui.controlsToggle.setAttribute("aria-label", `${available ? "Close" : "Open"} memory controls`);
+		};
+
+		this.ui.controlShell.addEventListener("mouseenter", () => {
+			if (!this.ui.controlShell.classList.contains("suppress-hover")) setControlsAvailable(true);
+		});
+		this.ui.controlShell.addEventListener("mouseleave", () => {
+			this.ui.controlShell.classList.remove("suppress-hover");
+			setControlsAvailable(this.ui.controlShell.classList.contains("is-pinned"));
+		});
+		this.ui.controlsToggle.addEventListener("click", () => {
+			const wasPinned = this.ui.controlShell.classList.contains("is-pinned");
+			this.ui.controlShell.classList.toggle("is-pinned", !wasPinned);
+			this.ui.controlShell.classList.toggle("suppress-hover", wasPinned);
+			setControlsAvailable(!wasPinned);
+		});
 
 		const openPhotoPicker = () => this.ui.photoInput.click();
 		this.ui.uploadHero.addEventListener("click", openPhotoPicker);
@@ -148,7 +176,7 @@ export default class Scene {
 		try {
 			await this.#replacePointField({
 				url: `${import.meta.env.BASE_URL}photo.min.ply`,
-				rotationX: Math.PI,
+				rotation: DEFAULT_ROTATION,
 			});
 			this.#setLoader(false);
 		} catch (error) {
@@ -180,9 +208,8 @@ export default class Scene {
 				},
 			});
 
-			await this.#replacePointField({ data, rotationX: 0 });
+			await this.#replacePointField({ data });
 			document.body.classList.add("memory-loaded");
-			this.ui.meta.textContent = `${file.name} · ${data.vertexCount.toLocaleString()} particles · processed locally`;
 			this.#setLoader(false);
 			this.#showToast("Your memory is alive. Add sound or pinch it with your hand.");
 		} catch (error) {
@@ -253,7 +280,7 @@ export default class Scene {
 		this.ui.handCursor.classList.toggle("pinching", state.pinching);
 	}
 
-	#replacePointField({ url = null, data = null, rotationX = 0 }) {
+	#replacePointField({ url = null, data = null, rotation = { x: 0, y: 0, z: 0 } }) {
 		return new Promise((resolve, reject) => {
 			if (this.plyLoader?.points) this.scene.remove(this.plyLoader.points);
 			this.plyLoader?.dispose();
@@ -274,7 +301,7 @@ export default class Scene {
 					this.#setLoader(true, "Opening memory", "Loading the particle field…", progress * 0.9);
 				},
 				onLoad: (points) => {
-					points.rotation.x = rotationX;
+					points.rotation.set(rotation.x, rotation.y, rotation.z);
 					this.scene.add(points);
 					this.#setupGui();
 					this.#applyPreset(this.currentPreset);
@@ -329,7 +356,11 @@ export default class Scene {
 		motion.add(particleUniforms.uAttractorRadius, "value", 0.2, 4, 0.05).name("hand radius");
 
 		const rotation = gui.addFolder("Rotation");
-		const angles = { x: THREE.MathUtils.radToDeg(points.rotation.x), y: 0, z: 0 };
+		const angles = {
+			x: THREE.MathUtils.radToDeg(points.rotation.x),
+			y: THREE.MathUtils.radToDeg(points.rotation.y),
+			z: THREE.MathUtils.radToDeg(points.rotation.z),
+		};
 		rotation.add(angles, "x", -180, 180, 1).onChange((value) => (points.rotation.x = THREE.MathUtils.degToRad(value)));
 		rotation.add(angles, "y", -180, 180, 1).onChange((value) => (points.rotation.y = THREE.MathUtils.degToRad(value)));
 		rotation.add(angles, "z", -180, 180, 1).onChange((value) => (points.rotation.z = THREE.MathUtils.degToRad(value)));

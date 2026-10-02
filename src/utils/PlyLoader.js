@@ -18,7 +18,7 @@ export default class PlyLoader {
 		this.onProgress = options.onProgress ?? null;
 		this.onError = options.onError ?? null;
 
-		this.size = options.size ?? 0.07;
+		this.size = options.size ?? 0.01;
 		this.flowFieldInfluence = options.flowFieldInfluence ?? 0.5;
 		this.flowFieldStrength = options.flowFieldStrength ?? 2.0;
 		this.flowFieldFrequency = options.flowFieldFrequency ?? 0.5;
