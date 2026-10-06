@@ -9,10 +9,7 @@
 	</head>
 	<body>
 		<main id="app" aria-label="Interactive particle memory"></main>
-
-		<header class="topbar">
-			<div id="privacy-pill" class="privacy-pill"><span></span>Images stay on this device</div>
-		</header>
+		<p class="privacy-note">Images stay on this device</p>
 
 		<section class="intro" aria-labelledby="intro-title">
 			<p class="eyebrow">A living photograph</p>
@@ -28,9 +25,9 @@
 			</button>
 			<div id="memory-controls" class="control-panel" aria-hidden="true" inert>
 				<div class="control-group primary-actions">
-					<button id="upload-btn" class="control-button" type="button" data-tooltip="New photograph"><span class="button-icon" aria-hidden="true">＋</span><span>Photo</span></button>
-					<button id="audio-btn" class="control-button" type="button" data-tooltip="Add a soundtrack"><span class="button-icon audio-icon" aria-hidden="true">♪</span><span>Sound</span></button>
-					<button id="hand-btn" class="control-button" type="button" data-tooltip="Control with your hand"><span class="button-icon" aria-hidden="true">◌</span><span>Hand</span></button>
+					<button id="upload-btn" class="control-button" type="button" data-tooltip="New photograph"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Photo</span></button>
+					<button id="audio-btn" class="control-button" type="button" data-tooltip="Add a soundtrack"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg><span>Sound</span></button>
+					<button id="hand-btn" class="control-button" type="button" data-tooltip="Control with your hand"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 3 7.4 17 2.1-6.5L20 11 4 3Z"/></svg><span>Hand</span></button>
 				</div>
 				<div class="divider" aria-hidden="true"></div>
 				<div class="preset-group" aria-label="Atmosphere presets">
@@ -43,7 +40,7 @@
 				</div>
 				<div class="divider" aria-hidden="true"></div>
 				<div class="secondary-actions">
-					<button id="reconstruct-btn" class="round-button" type="button" aria-label="Reconstruct memory" data-tooltip="Reconstruct">↻</button>
+					<button id="reconstruct-btn" class="round-button" type="button" aria-label="Reconstruct memory" data-tooltip="Reconstruct"><svg class="control-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
 					<button id="settings-btn" class="round-button" type="button" aria-label="Open fine tuning" data-tooltip="Fine tune">
 						<svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.03-1.56V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.56 1.03H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>
 					</button>

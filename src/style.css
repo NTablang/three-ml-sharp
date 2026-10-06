@@ -22,9 +22,8 @@ body::after {
 }
 
 button { font: inherit; }
-.topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 60; display: flex; align-items: center; justify-content: flex-end; padding: 24px 30px; pointer-events: none; }
-.privacy-pill { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 99px; background: rgba(5, 5, 8, .35); backdrop-filter: blur(16px); color: var(--muted); font: 500 10px/1 "Manrope", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
-.privacy-pill span, .hand-preview-label span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.privacy-note { position: fixed; top: 27px; right: 30px; z-index: 60; margin: 0; color: rgba(247,244,239,.42); font-size: 9px; font-weight: 500; line-height: 1; letter-spacing: .1em; text-transform: uppercase; }
+.hand-preview-label span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 
 .intro { position: fixed; left: clamp(28px, 6vw, 96px); top: 50%; z-index: 50; width: min(430px, calc(100vw - 56px)); transform: translateY(-52%); transition: opacity .8s ease, transform .8s ease, visibility .8s; }
 body.memory-loaded .intro { opacity: 0; visibility: hidden; transform: translateY(-46%); pointer-events: none; }
@@ -34,32 +33,33 @@ body.memory-loaded .intro { opacity: 0; visibility: hidden; transform: translate
 .hero-button { display: inline-flex; align-items: center; justify-content: space-between; gap: 42px; min-width: 250px; padding: 15px 17px; border: 0; border-radius: 3px; background: #f7f4ef; color: #0a0a0d; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .2s, transform .2s; }
 .hero-button:hover { background: var(--accent); transform: translateY(-2px); }
 
-.control-shell { position: fixed; right: 26px; bottom: 26px; z-index: 70; display: flex; flex-direction: row-reverse; align-items: stretch; max-width: calc(100vw - 28px); padding: 0; border: 1px solid transparent; border-radius: 15px; background: transparent; box-shadow: none; transition: padding .3s cubic-bezier(.2,.8,.2,1), border-color .25s ease, background .25s ease, box-shadow .25s ease; }
-.control-shell:not(.suppress-hover):hover, .control-shell.is-pinned { padding: 5px; border-color: rgba(var(--accent-rgb), .22); background: rgba(15, 15, 20, .82); box-shadow: 0 24px 80px rgba(0,0,0,.45); backdrop-filter: blur(22px) saturate(130%); }
+.control-shell { position: fixed; right: 24px; bottom: 22px; z-index: 70; display: flex; flex-direction: row-reverse; align-items: stretch; max-width: calc(100vw - 28px); padding: 0; border: 1px solid transparent; border-radius: 9px; background: transparent; box-shadow: none; transition: padding .25s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.control-shell:not(.suppress-hover):hover, .control-shell.is-pinned { padding: 4px; border-color: rgba(255,255,255,.14); background: rgba(9,9,12,.94); box-shadow: 0 14px 40px rgba(0,0,0,.4); backdrop-filter: blur(18px); }
 .controls-toggle { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; flex: 0 0 38px; width: 38px; height: 38px; padding: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; background: rgba(10,10,13,.72); color: var(--accent); box-shadow: 0 8px 28px rgba(0,0,0,.28); cursor: pointer; transition: border-color .2s ease, background .2s ease, color .2s ease; }
 .controls-toggle:hover { border-color: rgba(var(--accent-rgb), .45); background: rgba(18,18,22,.9); }
+.control-shell:not(.suppress-hover):hover .controls-toggle, .control-shell.is-pinned .controls-toggle { border-color: transparent; border-radius: 5px; background: transparent; box-shadow: none; }
 .controls-toggle:focus-visible { outline: 2px solid white; outline-offset: 3px; }
 .toggle-glyph { display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 3px; width: 13px; height: 13px; }
 .toggle-glyph i { display: block; width: 100%; height: 1px; border-radius: 2px; background: currentColor; transition: transform .25s ease, width .25s ease; }
 .toggle-glyph i:nth-child(2) { width: 62%; }
 .toggle-glyph i:nth-child(3) { width: 82%; }
 .toggle-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.control-panel { display: flex; align-items: stretch; gap: 16px; width: 0; min-width: 0; overflow: hidden; opacity: 0; transform: translateX(12px); pointer-events: none; transition: width .42s cubic-bezier(.2,.8,.2,1), margin-right .42s cubic-bezier(.2,.8,.2,1), opacity .22s ease, transform .42s cubic-bezier(.2,.8,.2,1); }
-.control-shell:not(.suppress-hover):hover .control-panel, .control-shell.is-pinned .control-panel { width: min(548px, calc(100vw - 104px)); margin-right: 6px; opacity: 1; transform: translateX(0); pointer-events: auto; }
+.control-panel { display: flex; align-items: stretch; gap: 8px; width: 0; min-width: 0; overflow: hidden; opacity: 0; transform: translateX(8px); pointer-events: none; transition: width .32s cubic-bezier(.2,.8,.2,1), margin-right .32s cubic-bezier(.2,.8,.2,1), opacity .18s ease, transform .32s cubic-bezier(.2,.8,.2,1); }
+.control-shell:not(.suppress-hover):hover .control-panel, .control-shell.is-pinned .control-panel { width: min(500px, calc(100vw - 96px)); margin-right: 2px; opacity: 1; transform: translateX(0); pointer-events: auto; }
 .control-group, .secondary-actions { display: flex; gap: 4px; }
 .control-button, .round-button, .preset { border: 0; color: rgba(255,255,255,.68); background: transparent; cursor: pointer; transition: color .2s, background .2s, transform .2s; }
-.control-button { display: flex; align-items: center; gap: 8px; padding: 0 11px; border-radius: 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
-.control-button:hover, .control-button.active, .round-button:hover { color: white; background: rgba(255,255,255,.08); }
-.button-icon { color: var(--accent); font-size: 17px; line-height: 1; }
-.audio-icon { font-size: 14px; }
-.divider { width: 1px; margin: 3px 0; background: var(--line); }
-.preset-group { display: flex; flex-direction: column; justify-content: center; gap: 7px; }
-.preset-label { color: rgba(255,255,255,.34); font-size: 8px; padding-left: 7px; }
+.control-button { display: flex; align-items: center; gap: 7px; padding: 0 9px; border-radius: 4px; font-size: 11px; letter-spacing: .01em; }
+.control-button:hover, .control-button.active, .round-button:hover { color: white; background: rgba(255,255,255,.055); }
+.control-button .control-icon { color: var(--accent); }
+.control-icon { display: block; width: 14px; height: 14px; flex: 0 0 14px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
+.divider { width: 1px; margin: 5px 2px; background: rgba(255,255,255,.12); }
+.preset-group { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.preset-label { color: rgba(255,255,255,.32); font-size: 7px; padding-left: 7px; }
 .preset-buttons { display: flex; }
-.preset { padding: 5px 8px; border-radius: 5px; font-size: 10px; }
+.preset { padding: 4px 7px 5px; border-radius: 0; font-size: 10px; }
 .preset:hover { color: white; }
-.preset.active { color: #0a0a0d; background: var(--accent); }
-.round-button { display: grid; place-items: center; flex: 0 0 38px; width: 38px; padding: 0; border-radius: 8px; font: 400 17px/1 "Manrope", sans-serif; }
+.preset.active { color: var(--accent); background: transparent; box-shadow: inset 0 -1px var(--accent); }
+.round-button { display: grid; place-items: center; flex: 0 0 34px; width: 34px; padding: 0; border-radius: 4px; font: 400 17px/1 "Manrope", sans-serif; }
 .gear-icon { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 .audio-dock { position: fixed; right: 24px; bottom: 92px; z-index: 65; display: flex; align-items: center; gap: 12px; }
@@ -99,19 +99,18 @@ body.memory-loaded .intro { opacity: 0; visibility: hidden; transform: translate
 
 @media (max-width: 900px) {
 	.control-shell { right: 14px; bottom: 14px; }
-	.control-panel { gap: 7px; }
-	.control-shell:not(.suppress-hover):hover .control-panel, .control-shell.is-pinned .control-panel { width: min(440px, calc(100vw - 92px)); }
+	.control-panel { gap: 5px; }
+	.control-shell:not(.suppress-hover):hover .control-panel, .control-shell.is-pinned .control-panel { width: min(410px, calc(100vw - 88px)); }
 	.control-button span:last-child, .preset-label { display: none; }
 	.control-button { padding: 0 9px; }
 	.audio-dock { right: 14px; bottom: 82px; }
 	.audio-dock audio { width: 190px; }
 }
 @media (max-width: 560px) {
-	.topbar { padding: 18px; }
-	.privacy-pill { display: none; }
+	.privacy-note { display: none; }
 	.intro { left: 24px; }
 	.intro h1 { font-size: 48px; }
-	.control-shell:not(.suppress-hover):hover .control-panel, .control-shell.is-pinned .control-panel { width: calc(100vw - 92px); overflow-x: auto; }
+	.control-shell:not(.suppress-hover):hover .control-panel, .control-shell.is-pinned .control-panel { width: calc(100vw - 88px); overflow-x: auto; }
 	.divider { flex: 0 0 1px; }
 	.preset { padding-inline: 6px; }
 	.hand-preview { right: 14px; top: 64px; width: 110px; }
